@@ -85,18 +85,12 @@ jobs:
         run: |
           if [ -n "$_APPLE_CERTIFICATE" ]; then
             {
-              echo "APPLE_CERTIFICATE<<CERT_EOF"
-              echo "$_APPLE_CERTIFICATE"
-              echo "CERT_EOF"
-              echo "APPLE_CERTIFICATE_PASSWORD<<PW_EOF"
-              echo "$_APPLE_CERTIFICATE_PASSWORD"
-              echo "PW_EOF"
-              echo "APPLE_SIGNING_IDENTITY=$_APPLE_SIGNING_IDENTITY"
-              echo "APPLE_ID=$_APPLE_ID"
-              echo "APPLE_PASSWORD<<APW_EOF"
-              echo "$_APPLE_PASSWORD"
-              echo "APW_EOF"
-              echo "APPLE_TEAM_ID=$_APPLE_TEAM_ID"
+              printf 'APPLE_CERTIFICATE<<CERT_EOF\n%s\nCERT_EOF\n' "$_APPLE_CERTIFICATE"
+              printf 'APPLE_CERTIFICATE_PASSWORD<<PW_EOF\n%s\nPW_EOF\n' "$_APPLE_CERTIFICATE_PASSWORD"
+              printf 'APPLE_SIGNING_IDENTITY=%s\n' "$_APPLE_SIGNING_IDENTITY"
+              printf 'APPLE_ID=%s\n' "$_APPLE_ID"
+              printf 'APPLE_PASSWORD<<APW_EOF\n%s\nAPW_EOF\n' "$_APPLE_PASSWORD"
+              printf 'APPLE_TEAM_ID=%s\n' "$_APPLE_TEAM_ID"
             } >> "$GITHUB_ENV"
           else
             echo "Skipping Apple code signing (no certificate configured)"
