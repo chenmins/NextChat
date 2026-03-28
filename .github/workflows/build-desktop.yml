@@ -1,0 +1,101 @@
+name: Build Desktop App
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_windows:
+        description: "Build Windows version"
+        type: boolean
+        default: true
+      build_macos:
+        description: "Build macOS version"
+        type: boolean
+        default: true
+
+jobs:
+  build-tauri:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            arch: universal
+            rust_target: x86_64-apple-darwin,aarch64-apple-darwin
+            label: macOS
+            enabled_input: build_macos
+          - os: windows-latest
+            arch: x86_64
+            rust_target: x86_64-pc-windows-msvc
+            label: Windows
+            enabled_input: build_windows
+
+    runs-on: ${{ matrix.os }}
+    if: >-
+      (matrix.label == 'macOS' && github.event.inputs.build_macos == 'true') ||
+      (matrix.label == 'Windows' && github.event.inputs.build_windows == 'true')
+    name: Build ${{ matrix.label }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "yarn"
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+          workspaces: "src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: yarn install
+
+      - name: Build Tauri App (macOS Universal)
+        if: matrix.os == 'macos-latest'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY || '' }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD || '' }}
+        with:
+          args: --target universal-apple-darwin
+
+      - name: Build Tauri App (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY || '' }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD || '' }}
+
+      - name: Upload macOS artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NextChat-macOS
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Windows artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NextChat-Windows
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: warn
+          retention-days: 30
