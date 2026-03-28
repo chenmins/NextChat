@@ -32,36 +32,50 @@ jobs:
             enabled_input: build_windows
 
     runs-on: ${{ matrix.os }}
-    if: >-
-      (matrix.label == 'macOS' && github.event.inputs.build_macos == 'true') ||
-      (matrix.label == 'Windows' && github.event.inputs.build_windows == 'true')
     name: Build ${{ matrix.label }}
 
     steps:
+      - name: Check if build is enabled
+        id: check
+        shell: bash
+        run: |
+          if [ "${{ matrix.label }}" = "macOS" ]; then
+            echo "enabled=${{ github.event.inputs.build_macos }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ matrix.label }}" = "Windows" ]; then
+            echo "enabled=${{ github.event.inputs.build_windows }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
+        if: steps.check.outputs.enabled == 'true'
 
       - name: Setup Node.js
+        if: steps.check.outputs.enabled == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: "yarn"
 
       - name: Install Rust stable
+        if: steps.check.outputs.enabled == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust_target }}
 
       - name: Rust cache
+        if: steps.check.outputs.enabled == 'true'
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}
           workspaces: "src-tauri -> target"
 
       - name: Install frontend dependencies
+        if: steps.check.outputs.enabled == 'true'
         run: yarn install
 
       - name: Build Tauri App (macOS Universal)
-        if: matrix.os == 'macos-latest'
+        if: steps.check.outputs.enabled == 'true' && matrix.os == 'macos-latest'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,7 +85,7 @@ jobs:
           args: --target universal-apple-darwin
 
       - name: Build Tauri App (Windows)
-        if: matrix.os == 'windows-latest'
+        if: steps.check.outputs.enabled == 'true' && matrix.os == 'windows-latest'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +93,7 @@ jobs:
           TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD || '' }}
 
       - name: Upload macOS DMG
-        if: matrix.os == 'macos-latest'
+        if: steps.check.outputs.enabled == 'true' && matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
           name: NextChat-macOS-DMG
@@ -88,7 +102,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Windows artifacts
-        if: matrix.os == 'windows-latest'
+        if: steps.check.outputs.enabled == 'true' && matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: NextChat-Windows
