@@ -1,4 +1,8 @@
 import webpack from "webpack";
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const mode = process.env.BUILD_MODE ?? "standalone";
 console.log("[Next] build mode", mode);
@@ -18,6 +22,12 @@ const nextConfig = {
       config.plugins.push(
         new webpack.optimize.LimitChunkCountPlugin({ maxChunks: 1 }),
       );
+
+      // Replace MCP server actions with no-op stubs for static export builds.
+      // Server Actions are not supported with static export (Tauri desktop app).
+      config.resolve.alias[
+        path.resolve(__dirname, "app/mcp/actions")
+      ] = path.resolve(__dirname, "app/mcp/actions.stub.ts");
     }
 
     config.resolve.fallback = {
